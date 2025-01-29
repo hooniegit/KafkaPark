@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: KafkaConsumer
+
+  kafka:
+    bootstrap-servers: ${kafka.broker}
+    consumer:
+      group-id: AutoGeneration
+      topic: ${kafka.topic}
+      key-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+      enable-auto-commit: true
+      auto-offset-reset: latest
+      fetch.min.bytes: 1024
+      max.poll.interval.ms: 60000
+      session.timeout.ms: 60000
+      request.timeout.ms: 60000
+      reconnect.backoff.ms: 1000
+      reconnect.backoff.max.ms: 10000
+
+configuration:
+  path: ManualInput
+
+LMAX:
+  stream:
+    size: 8
