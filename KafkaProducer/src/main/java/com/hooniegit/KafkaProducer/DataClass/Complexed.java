@@ -1,4 +1,4 @@
-package com.hooniegit.KafkaConsumer.DataClass;
+package com.hooniegit.KafkaProducer.DataClass;
 
 import java.util.HashMap;
 
