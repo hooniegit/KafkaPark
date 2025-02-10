@@ -1,6 +1,10 @@
 package com.hooniegit.KafkaProducer.Producer;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import com.hooniegit.KafkaProducer.DataClass.Complexed;
 import com.hooniegit.KafkaProducer.DataClass.Specified;
+import com.hooniegit.KafkaProducer.DataClass.State;
 import com.hooniegit.KafkaProducer.Serializer.KryoSerializer;
 
 import jakarta.annotation.PostConstruct;
@@ -24,6 +29,8 @@ public class KafkaProducerService {
     
     private final Random random = new Random();
 
+    private State[] state = {State.UNKNOWN, State.STOPPED, State.RUNNING, State.PROBLEM};
+
     /**
      * Service Method (for Test) :: Send Serialized Datas to Apache Kafka Broker
      */
@@ -32,44 +39,37 @@ public class KafkaProducerService {
 
         while(true) {
 
+            int minute = Integer.parseInt(LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM")));
+
 			for (int i = 1; i <= 6000; i++) {
-                // Define Header
-                HashMap<String, Object> m = new HashMap<>();
-                m.put("timestamp", LocalDateTime.now().toString());
+ 
+                // Create Header
+                HashMap<String, Object> header = new HashMap<>();
+                header.put("timestamp", LocalDateTime.now().toString());
 
-                // Define Body
-                List<Specified> list = new ArrayList<>();
-
-                // 10 Categories for Each List
-                // 300 IDs for Each List
+                // Create Body
+                List<Specified> body = new ArrayList<>();
 				for (int j = 1; j <= 10; j++) {
-					int category = j + (i - 1) * 10;
-
-                    // 30 IDs for Each Category
+					int category = j + (i - 1) * 10; // category: 1 ~ 60,000
 					for (int k = 1; k <= 30; k++) {
-						int id = k + (j - 1) * 30 + (i - 1) * 300;
-
-						list.add(new Specified(id, 
-                                               category, 
+						int id = k + (j - 1) * 30 + (i - 1) * 300; // id: 1 ~ 1,800,000
+						body.add(new Specified(id, 
                                                random.nextInt(), 
-                                               null, 
-                                               null, 
-                                               null, 
-                                               null, 
-                                               null, 
-                                               null, 
-                                               null, 
-                                               null));
+                                               null,
+                                               category, 
+                                               this.state[minute%4].getInfo(), // change every minute
+                                               this.state[(minute%4 + 1)%4].getInfo(),
+                                               this.state[(minute%4 + 2)%4].getInfo()));
 					}
 				}
 
-                // Define Complexed<List<Specified>>
-                Complexed<List<Specified>> outer = new Complexed<List<Specified>>(m, list);
+                // Create Complexed
+                Complexed<List<Specified>> outer = new Complexed<>(header, body);
 
                 // Serialize & Send
                 try {
-                    byte[] b = KryoSerializer.<Complexed<List<Specified>>>serialize(outer);
-                    sendMessage("mirror", i, b);
+                    byte[] b = KryoSerializer.serialize(outer);
+                    sendMessage(null, i, b);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -95,4 +95,22 @@ public class KafkaProducerService {
             }
         });
     }
+
+    /**
+     * [TEST] Send byte[] Data to Localhost
+     * @param b
+     */
+    private void udp(byte[] b) {
+        String serverAddress = "127.0.0.1";
+        int port = 12345;
+
+        try (DatagramSocket clientSocket = new DatagramSocket()) {
+            InetAddress address = InetAddress.getByName(serverAddress);
+            DatagramPacket packet = new DatagramPacket(b, b.length, address, port);
+            clientSocket.send(packet);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }
