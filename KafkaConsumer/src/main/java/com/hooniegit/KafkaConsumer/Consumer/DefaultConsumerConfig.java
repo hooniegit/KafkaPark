@@ -12,8 +12,14 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
+/**
+ * Spring 프레임워크의 Kafka Consumer 구성 클래스입니다.<br>
+ * - application.yml 파일의 구성 설정을 참조합니다.<br>
+ * - 데이터는 <String, byte[]> 규격으로 수신합니다.
+ */
+
 @Configuration
-public class KafkaConsumerConfig {
+public class DefaultConsumerConfig {
     @Autowired
     private KafkaProperties kafkaProperties;
     

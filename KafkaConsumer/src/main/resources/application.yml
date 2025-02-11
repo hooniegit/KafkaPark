@@ -3,11 +3,11 @@ spring:
     name: KafkaConsumer
 
   kafka:
-    bootstrap-servers: ${kafka.broker}
+    bootstrap-servers: workspace:9092
     consumer:
       group-id: AutoGeneration
-      topic: ${kafka.topic}
-      key-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      topic: WAT
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
       partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
       enable-auto-commit: true
@@ -19,9 +19,8 @@ spring:
       reconnect.backoff.ms: 1000
       reconnect.backoff.max.ms: 10000
 
+  main:
+    allow-circular-references: true
+
 configuration:
   path: ManualInput
-
-LMAX:
-  stream:
-    size: 8
