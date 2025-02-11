@@ -21,18 +21,21 @@ import com.hooniegit.KafkaProducer.Serializer.KryoSerializer;
 
 import jakarta.annotation.PostConstruct;
 
+/**
+ * Kafka Producer 서비스입니다. 더미 데이터를 대량으로 생성하여 연속 발행합니다.<br>
+ * - KafkaProducerConfig 클래스를 기반으로 동작합니다.
+ */
+
 @Service
 public class KafkaProducerService {
 
     @Autowired
     private KafkaTemplate<String, byte[]> kafkaTemplate;
-    
     private final Random random = new Random();
-
     private State[] state = {State.UNKNOWN, State.STOPPED, State.RUNNING, State.PROBLEM};
 
     /**
-     * Service Method (for Test) :: Send Serialized Datas to Apache Kafka Broker
+     * 데이터를 발행하는 @PostConstruct 서비스입니다.
      */
     @PostConstruct
     private void service() {
@@ -43,11 +46,11 @@ public class KafkaProducerService {
 
 			for (int i = 1; i <= 6000; i++) {
  
-                // Create Header
+                // Header 생성
                 HashMap<String, Object> header = new HashMap<>();
                 header.put("timestamp", LocalDateTime.now().toString());
 
-                // Create Body
+                // Body 생성성
                 List<Specified> body = new ArrayList<>();
 				for (int j = 1; j <= 10; j++) {
 					int category = j + (i - 1) * 10; // category: 1 ~ 60,000
@@ -63,13 +66,14 @@ public class KafkaProducerService {
 					}
 				}
 
-                // Create Complexed
+                // Complexed 객체 생성성
                 Complexed<List<Specified>> outer = new Complexed<>(header, body);
 
-                // Serialize & Send
+                // 직렬화 및 데이터 전송
                 try {
                     byte[] b = KryoSerializer.serialize(outer);
-                    sendMessage(null, i, b);
+                    sendMessage("WAT", (i-1)%64, b);
+                    System.out.println(">>>>>>>>> " + i);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -80,24 +84,23 @@ public class KafkaProducerService {
     }
 
     /**
-     * Send byte[] Data to Apache Kafka Broker
+     * byte[] 데이터를 입력받아 메타 정보와 함께 브로커에 전송합니다. 브로커는 전송받은 데이터를 토픽에 발행합니다.
      * @param topic
      * @param partition
      * @param message
      */
     private void sendMessage(String topic, int partition, byte[] message) {
-        System.out.printf("Producing message: {} to topic: {} \n", message, topic);
         kafkaTemplate.send(topic, partition, "test", message).whenComplete((result, ex) -> {
             if (ex == null) {
-                System.out.printf("Message sent successfully: {} \n", result.getRecordMetadata());
+                System.out.println("Message sent successfully to.. " + partition);
             } else {
-                System.out.printf("Failed to send message \n", ex);
+                System.out.println("Failed to send message " + ex);
             }
         });
     }
 
     /**
-     * [TEST] Send byte[] Data to Localhost
+     * [검증용] byte[] 데이터를 입력받아 UDP 통신으로 로컬 환경에 데이터를 전송합니다.
      * @param b
      */
     private void udp(byte[] b) {

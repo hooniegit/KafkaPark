@@ -14,6 +14,12 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
+/**
+ * 데이터 객체를 byte[] 타입으로 직렬화합니다.<br>
+ * - Xerializer (https://github.com/hooniegit/Xerializer) 패키지를 사용하고 있습니다.<br>
+ * - Update Date : 25.02.11
+ */
+
 public class KryoSerializer {
 
     private static final ObjectPool<Kryo> kryoPool;
