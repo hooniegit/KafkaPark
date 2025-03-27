@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 import com.hooniegit.KafkaProducer.DataClass.Complexed;
 import com.hooniegit.KafkaProducer.DataClass.Specified;
 import com.hooniegit.KafkaProducer.DataClass.State;
-import com.hooniegit.KafkaProducer.Serializer.KryoSerializer;
+
+import com.hooniegit.Xerializer.Serializer.KryoSerializer;
 
 import jakarta.annotation.PostConstruct;
 
@@ -50,7 +51,7 @@ public class KafkaProducerService {
                 HashMap<String, Object> header = new HashMap<>();
                 header.put("timestamp", LocalDateTime.now().toString());
 
-                // Body 생성성
+                // Body 생성
                 List<Specified> body = new ArrayList<>();
 				for (int j = 1; j <= 10; j++) {
 					int category = j + (i - 1) * 10; // category: 1 ~ 60,000
@@ -66,14 +67,16 @@ public class KafkaProducerService {
 					}
 				}
 
-                // Complexed 객체 생성성
+                // Complexed 객체 생성
                 Complexed<List<Specified>> outer = new Complexed<>(header, body);
 
                 // 직렬화 및 데이터 전송
                 try {
                     byte[] b = KryoSerializer.serialize(outer);
-                    sendMessage("WAT", (i-1)%64, b);
-                    System.out.println(">>>>>>>>> " + i);
+                    Complexed<List<Specified>> c = (Complexed<List<Specified>>) KryoSerializer.deserialize(b);
+                    System.out.println(c.getBody().get(0).getId());
+                    // sendMessage("WAT", (i-1)%64, b);
+                    // System.out.println(">>>>>>>>> " + i);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
