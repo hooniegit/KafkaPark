@@ -1,8 +1,5 @@
 package com.hooniegit.KafkaProducer.Producer;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,23 +98,6 @@ public class KafkaProducerService {
                 System.out.println("Failed to send message " + ex);
             }
         });
-    }
-
-    /**
-     * [검증용] byte[] 데이터를 입력받아 UDP 통신으로 로컬 환경에 데이터를 전송합니다.
-     * @param b
-     */
-    private void udp(byte[] b) {
-        String serverAddress = "127.0.0.1";
-        int port = 12345;
-
-        try (DatagramSocket clientSocket = new DatagramSocket()) {
-            InetAddress address = InetAddress.getByName(serverAddress);
-            DatagramPacket packet = new DatagramPacket(b, b.length, address, port);
-            clientSocket.send(packet);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
 }

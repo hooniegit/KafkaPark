@@ -95,8 +95,9 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
 
         // List 데이터 추가
         for (Specified specified : l) {
-            tagDataList.add(new TagData<>(specified.getId(), specified.getValue()));
-            stateList.add(new TagData<>(specified.getId(), specified.isState()));
+            int id = specified.getId();
+            tagDataList.add(new TagData<>(id, specified.getValue()));
+            stateList.add(new TagData<>(id, specified.isState()));
 
             // group 값의 변경
             int currentGroup = specified.getGroup();
