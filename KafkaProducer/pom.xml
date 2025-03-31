@@ -38,7 +38,6 @@
 		</repository>
 	</repositories>
 
-
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -98,6 +97,13 @@
 		<dependency>
 			<groupId>com.hooniegit</groupId>
 			<artifactId>Xerializer</artifactId>
+			<version>0.1.0</version>
+		</dependency>
+
+		<!-- SourceData -->
+		<dependency>
+			<groupId>com.hooniegit</groupId>
+			<artifactId>SourceData</artifactId>
 			<version>0.1.0</version>
 		</dependency>
 

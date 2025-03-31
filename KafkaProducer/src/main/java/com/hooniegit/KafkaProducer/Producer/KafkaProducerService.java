@@ -4,7 +4,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,13 +13,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.hooniegit.KafkaProducer.DataClass.Complexed;
-import com.hooniegit.KafkaProducer.DataClass.Specified;
-import com.hooniegit.KafkaProducer.DataClass.State;
-
-import com.hooniegit.Xerializer.Serializer.KryoSerializer;
-
 import jakarta.annotation.PostConstruct;
+
+// Nexus Dependencies
+import com.hooniegit.SourceData.Source.Complexed;
+import com.hooniegit.SourceData.Source.Specified;
+import com.hooniegit.SourceData.Source.State;
+import com.hooniegit.Xerializer.Serializer.KryoSerializer;
 
 /**
  * Kafka Producer 서비스입니다. 더미 데이터를 대량으로 생성하여 연속 발행합니다.<br>
@@ -33,7 +32,6 @@ public class KafkaProducerService {
     @Autowired
     private KafkaTemplate<String, byte[]> kafkaTemplate;
     private final Random random = new Random();
-    private State[] state = {State.UNKNOWN, State.STOPPED, State.RUNNING, State.PROBLEM};
 
     /**
      * 데이터를 발행하는 @PostConstruct 서비스입니다.
@@ -43,8 +41,6 @@ public class KafkaProducerService {
 
         while(true) {
 
-            int minute = Integer.parseInt(LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM")));
-
 			for (int i = 1; i <= 6000; i++) {
  
                 // Header 생성
@@ -53,17 +49,21 @@ public class KafkaProducerService {
 
                 // Body 생성
                 List<Specified> body = new ArrayList<>();
+
+                // group 단위 : 1 ~ 60,000
 				for (int j = 1; j <= 10; j++) {
-					int category = j + (i - 1) * 10; // category: 1 ~ 60,000
+					int group = j + (i - 1) * 10;
+
+                    // id 단위 : 1 ~ 1,800,000
 					for (int k = 1; k <= 30; k++) {
-						int id = k + (j - 1) * 30 + (i - 1) * 300; // id: 1 ~ 1,800,000
+						int id = k + (j - 1) * 30 + (i - 1) * 300;
 						body.add(new Specified(id, 
                                                random.nextInt(), 
+                                               true,
+                                               group, 
+                                               State.RUNNING,
                                                null,
-                                               category, 
-                                               this.state[minute%4].getInfo(), // change every minute
-                                               this.state[(minute%4 + 1)%4].getInfo(),
-                                               this.state[(minute%4 + 2)%4].getInfo()));
+                                               null));
 					}
 				}
 
@@ -73,10 +73,11 @@ public class KafkaProducerService {
                 // 직렬화 및 데이터 전송
                 try {
                     byte[] b = KryoSerializer.serialize(outer);
-                    Complexed<List<Specified>> c = (Complexed<List<Specified>>) KryoSerializer.deserialize(b);
-                    System.out.println(c.getBody().get(0).getId());
-                    // sendMessage("WAT", (i-1)%64, b);
-                    // System.out.println(">>>>>>>>> " + i);
+                    sendMessage("WAT", (i-1)%64, b);
+                    System.out.println(">>>>>>>>> " + i);
+
+                    // Complexed<List<Specified>> c = (Complexed<List<Specified>>) KryoSerializer.deserialize(b);
+                    // System.out.println(c.getHeader().get("timestamp"));
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }

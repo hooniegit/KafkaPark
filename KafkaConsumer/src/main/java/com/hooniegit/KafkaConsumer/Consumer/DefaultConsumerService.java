@@ -3,24 +3,26 @@ package com.hooniegit.KafkaConsumer.Consumer;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
 import org.springframework.stereotype.Service;
 
-import com.hooniegit.KafkaConsumer.DataClass.CategoryClass;
-import com.hooniegit.KafkaConsumer.DataClass.Complexed;
-import com.hooniegit.KafkaConsumer.DataClass.IdClass;
-import com.hooniegit.KafkaConsumer.DataClass.Specified;
-import com.hooniegit.KafkaConsumer.Serializer.KryoSerializer;
+// Nexus Dependencies
+import com.hooniegit.SourceData.Source.Complexed;
+import com.hooniegit.SourceData.Source.Specified;
+import com.hooniegit.SourceData.Source.State;
+import com.hooniegit.SourceData.Tag.QuadTagGroup;
+import com.hooniegit.SourceData.Tag.TagData;
+import com.hooniegit.SourceData.Tag.TagGroup;
+import com.hooniegit.Xerializer.Serializer.KryoSerializer;
 
 /**
  * KafkaConsumer 서비스입니다. KafkaListener 가 수신한 데이터를 가공하고 UDP 규격으로 전송합니다.
@@ -52,42 +54,22 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
 
             // 필요 속성 추출
             String timestamp = (String) c.getHeader().get("timestamp");
+
+            // System.out.println("timestamp : " + timestamp);
+
             List<Specified> l =  c.getBody();
 
-            System.out.println(timestamp);
+            // QuadTagGroup 객체 생성
+            QuadTagGroup qtg = generateAllGroups(l, timestamp);
 
-            // List<IdClass> 객체 생성
-            List<IdClass> idClassList = l.stream()
-                .map(specified -> new IdClass(
-                    specified.getId(), 
-                    specified.getValue(), 
-                    specified.getStatus(),
-                    timestamp))
-                .collect(Collectors.toList());
+            // UDP 통신으로 전송
+            udp(KryoSerializer.serialize(qtg.getTagGroup()), 13000);
+            udp(KryoSerializer.serialize(qtg.getStateGroup()), 13001);
+            udp(KryoSerializer.serialize(qtg.getState01Group()), 13002);
+            udp(KryoSerializer.serialize(qtg.getState02Group()), 13003);
+            udp(KryoSerializer.serialize(qtg.getState03Group()), 13004);
 
-            // 직렬화 및 UDP 전송
-            byte[] idByteArray = KryoSerializer.serialize(idClassList);
-            udp(idByteArray, 9090);
-
-            // List<CategoryClass> 객체 생성
-            List<CategoryClass> categoryClassList = l.stream()
-                .collect(Collectors.toMap(
-                    Specified::getCategory,
-                    specified -> new CategoryClass(
-                            specified.getCategory(), 
-                            specified.getStatus_01(), 
-                            specified.getStatus_02(), 
-                            specified.getStatus_03(),
-                            timestamp),
-                    (existing, replacement) -> existing
-                ))
-                .values()
-                .stream()
-                .collect(Collectors.toList());
-
-            // 직렬화 및 UDP 전송송
-            byte[] categoryByteArray = KryoSerializer.serialize(categoryClassList);
-            udp(categoryByteArray, 9091);
+            System.out.println("timestamp : " + qtg.getTagGroup().getTimestamp());
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -96,10 +78,51 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
     }
 
     /**
+     * QuadTagGroup 객체를 생성합니다.
+     * @param l
+     * @param datetime
+     * @return
+     */
+    private QuadTagGroup generateAllGroups(List<Specified> l, String timestamp) {
+
+        List<TagData<Long>> tagDataList = new ArrayList<>();
+        List<TagData<Boolean>> stateList = new ArrayList<>();
+        List<TagData<State>> state01List = new ArrayList<>();
+        List<TagData<String>> state02List = new ArrayList<>();
+        List<TagData<String>> state03List = new ArrayList<>();
+
+        int prevGroup = 0;
+
+        // List 데이터 추가
+        for (Specified specified : l) {
+            tagDataList.add(new TagData<>(specified.getId(), specified.getValue()));
+            stateList.add(new TagData<>(specified.getId(), specified.isState()));
+
+            // group 값의 변경
+            int currentGroup = specified.getGroup();
+            if (currentGroup != prevGroup) {
+                state01List.add(new TagData<>(currentGroup, specified.getGroup_state_01()));
+                state02List.add(new TagData<>(currentGroup, specified.getGroup_state_02()));
+                state03List.add(new TagData<>(currentGroup, specified.getGroup_state_03()));
+                prevGroup = currentGroup;
+            }
+        }
+
+        // QuadTagGroup 객체 생성
+        return new QuadTagGroup(new TagGroup<>(timestamp, tagDataList.toArray(new TagData[0])), 
+                                new TagGroup<>(timestamp, stateList.toArray(new TagData[0])),
+                                new TagGroup<>(timestamp, state01List.toArray(new TagData[0])), 
+                                new TagGroup<>(timestamp, state02List.toArray(new TagData[0])), 
+                                new TagGroup<>(timestamp, state03List.toArray(new TagData[0])));
+
+    }
+
+    /**
      * byte[] 데이터를 입력받아 UDP 통신으로 로컬 환경에 데이터를 전송합니다.
      * @param b
      */
     private void udp(byte[] b, int port) {
+
         String serverAddress = "127.0.0.1";
 
         try (DatagramSocket clientSocket = new DatagramSocket()) {
@@ -109,588 +132,525 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
     }
 
     /**
      * 구독하는 파티션의 수량에 비례하여 KafkaListener 스레드를 구성합니다.<br>
      * - 스레드를 독립적으로 구성해 시스템 내에 발생하는 병목 현상을 방지할 수 있습니다.
-     * @param records
+     * @param record
      * @param consumer
      */
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"0"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume00(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume00(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"1"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume01(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume01(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"2"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume02(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume02(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"3"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume03(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume03(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"4"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume04(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume04(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"5"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume05(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume05(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"6"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume06(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume06(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"7"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume07(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume07(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"8"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume08(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume08(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"9"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume09(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume09(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"10"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume10(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume10(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"11"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume11(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume11(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"12"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume12(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume12(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"13"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume13(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume13(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"14"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume14(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume14(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"15"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume15(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume15(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"16"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume16(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume16(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"17"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume17(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume17(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"18"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume18(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume18(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"19"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume19(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume19(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"20"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume20(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume20(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"21"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume21(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume21(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"22"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume22(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume22(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"23"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume23(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume23(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"24"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume24(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume24(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"25"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume25(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume25(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"26"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume26(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume26(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"27"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume27(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume27(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"28"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume28(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume28(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"29"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume29(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume29(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"30"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume30(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume30(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"31"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume31(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume31(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"32"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume32(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume32(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"33"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume33(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume33(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"34"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume34(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume34(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"35"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume35(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume35(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"36"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume36(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume36(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"37"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume37(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume37(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"38"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume38(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume38(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"39"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume39(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume39(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"40"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume40(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume40(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"41"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume41(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume41(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"42"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume42(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume42(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"43"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume43(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume43(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"44"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume44(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume44(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"45"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume45(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume45(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"46"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume46(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume46(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"47"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume47(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume47(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"48"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume48(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume48(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"49"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume49(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume49(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"50"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume50(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume50(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"51"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume51(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume51(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"52"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume52(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume52(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"53"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume53(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume53(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"54"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume54(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume54(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"55"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume55(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume55(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"56"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume56(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume56(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"57"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume57(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume57(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"58"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume58(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume58(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"59"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume59(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume59(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"60"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume60(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume60(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"61"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume61(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
-    	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    public void consume61(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"62"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume62(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume62(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 
     @KafkaListener(topicPartitions = @TopicPartition(topic = "WAT", partitions = {"63"}), 
                    containerFactory = "kafkaListenerContainerFactory")
-    public void consume63(ConsumerRecords<String, byte[]> records, Consumer<?, ?> consumer) {
+    public void consume63(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
     	
-    	for (ConsumerRecord<String, byte[]> record : records) {
-    		task(record);
-    	}
+    	task(record);
+
     }
 	
 }
