@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: XtreamApplication
+
+LMAX:
+  stream:
+    size: 12
