@@ -1,0 +1,17 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.hooniegit</groupId>
+        <artifactId>GroupStateTransmitter</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>StateTwo</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- 필요시 common 의존성 등 -->
+    </dependencies>
+</project>
