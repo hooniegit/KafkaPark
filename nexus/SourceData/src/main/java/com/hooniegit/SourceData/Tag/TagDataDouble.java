@@ -10,9 +10,10 @@ import lombok.Setter;
  */
 
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
-public class TagData<T> {
+public class TagDataDouble<F, S> {
 
     private int id;
-    private T value;
+    private F valueFirst;
+    private S valueSecond;
 
 }

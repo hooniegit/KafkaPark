@@ -10,9 +10,11 @@ import lombok.Setter;
  */
 
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
-public class TagData<T> {
+public class TagDataTripple<F, S, T> {
 
     private int id;
-    private T value;
+    private F valueFirst;
+    private S valueSecond;
+    private T valueThird;
 
 }

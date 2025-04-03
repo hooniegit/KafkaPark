@@ -1,0 +1,17 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.hooniegit</groupId>
+        <artifactId>Filter</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>TagFilter</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+    </dependencies>
+    
+</project>
