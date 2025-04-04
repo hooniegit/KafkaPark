@@ -1,4 +1,6 @@
-package com.hooniegit.SourceData.Tag;
+package com.hooniegit.SourceData.Source;
+
+import java.util.HashMap;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -6,13 +8,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 태그 데이터 클래스입니다.
+ * 
  */
 
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
-public class TagData<T> {
+public class Data<T> {
 
-    private int id;
-    private T value;
+    private HashMap<String, Object> header;
+    private T body;
 
 }

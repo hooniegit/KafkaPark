@@ -4,24 +4,23 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.TopicPartition;
-import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
+import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.stereotype.Service;
 
 // Nexus Dependencies
-import com.hooniegit.SourceData.Source.Complexed;
-import com.hooniegit.SourceData.Source.Specified;
-import com.hooniegit.SourceData.Tag.TagDataDouble;
-import com.hooniegit.SourceData.Tag.TagDataTripple;
-import com.hooniegit.SourceData.Tag.TagGroup;
-import com.hooniegit.SourceData.Tag.Package.GroupPackage;
+import com.hooniegit.SourceData.Source.Data;
+import com.hooniegit.SourceData.Source.Body;
+import com.hooniegit.SourceData.Interface.Package;
+import com.hooniegit.SourceData.Interface.TagData;
+import com.hooniegit.SourceData.Interface.TagGroup;
 import com.hooniegit.Xerializer.Serializer.KryoSerializer;
 
 /**
@@ -29,16 +28,16 @@ import com.hooniegit.Xerializer.Serializer.KryoSerializer;
  */
 
 @Service
-public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
+public class DefaultConsumerService implements ConsumerSeekAware {
 
     /**
      * 파티션이 새로 등록되었을 때, 해당 파티션의 오프셋 정보를 초기화합니다.
      */
     @Override
-    public void onPartitionsAssigned(Consumer<?, ?> consumer, Collection<org.apache.kafka.common.TopicPartition> partitions) {
+    public void onPartitionsAssigned(Map<org.apache.kafka.common.TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
 
-        partitions.forEach(partition -> {
-            consumer.seekToEnd(List.of(new org.apache.kafka.common.TopicPartition(partition.topic(), partition.partition())));
+        assignments.keySet().forEach(partition -> {
+        callback.seekToEnd("WAT", partition.partition());
         });
 
     }
@@ -51,31 +50,14 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
 
         try {
             // 데이터 역직렬화
-            Complexed<List<Specified>> c = KryoSerializer.deserialize(record.value());
+            Data<List<Body>> c = KryoSerializer.deserialize(record.value());
 
             // 필요 속성 추출
             String timestamp = (String) c.getHeader().get("timestamp");
-            List<Specified> l =  c.getBody();
+            List<Body> l =  c.getBody();
 
-            // System.out.println("timestamp : " + timestamp);
+            Package pkg = generatePackage(l, timestamp);
 
-            // TotalPackage 객체 생성
-            GroupPackage tpg = generatePackage(l, timestamp);
-
-            TagDataDouble<Double, Boolean>[][] tagArray = tpg.getTagPackage().splitArray(2);
-            TagDataTripple<Integer, String, String>[][] groupArray = tpg.getGroupPackage().splitArray(3);
-
-            // UDP 통신으로 전송
-            udp(KryoSerializer.serialize(new TagGroup<TagDataDouble<Double, Boolean>>(timestamp, tagArray[0])), 13000);
-            udp(KryoSerializer.serialize(new TagGroup<TagDataDouble<Double, Boolean>>(timestamp, tagArray[1])), 13000);
-
-            udp(KryoSerializer.serialize(new TagGroup<TagDataTripple<Integer, String, String>>(timestamp, groupArray[0])), 13001);
-            udp(KryoSerializer.serialize(new TagGroup<TagDataTripple<Integer, String, String>>(timestamp, groupArray[1])), 13001);
-            udp(KryoSerializer.serialize(new TagGroup<TagDataTripple<Integer, String, String>>(timestamp, groupArray[2])), 13001);
-
-            // udp(KryoSerializer.serialize(tpg.getGroupPackage()), 13001);
-
-            System.out.println("timestamp : " + tpg.getTagPackage().getTimestamp());
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -88,35 +70,52 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
      * @param datetime
      * @return
      */
-    private GroupPackage generatePackage(List<Specified> l, String timestamp) {
+    private Package generatePackage(List<Body> list, String timestamp) {
 
         // List 객체 생성
-        List<TagDataDouble<Double, Boolean>> tagDataList = new ArrayList<>();
-        List<TagDataTripple<Integer, String, String>> groupDataList = new ArrayList<>();
+        List<TagData<Double>> values = new ArrayList<>();
+        List<TagData<Boolean>> modes = new ArrayList<>();
+        List<TagData<Integer>> states = new ArrayList<>();
+        List<TagData<String>> statusOnes = new ArrayList<>();
+        List<TagData<String>> statusTwos = new ArrayList<>();
 
         // group 값이 변경되면 해당 group의 상태 저장
         int prevGroup = 0;
 
         // List 데이터 추가
-        for (Specified specified : l) {
+        for (Body b : list) {
             // tag 단위 데이터 추가
-            int id = specified.getId();
-            tagDataList.add(
-                new TagDataDouble(
+            int id = b.getId();
+            values.add(
+                new TagData<Double>(
                     id, 
-                    specified.getValue(), 
-                    specified.isState()
+                    b.getValue()
+                ));
+            modes.add(
+                new TagData<Boolean>(
+                    id, 
+                    b.isMode()
                 ));
 
             // group 단위 데이터 추가
-            int currentGroup = specified.getGroup();
+            int currentGroup = b.getGroup();
             if (currentGroup != prevGroup) {
-                groupDataList.add(
-                    new TagDataTripple<>(
+                states.add(
+                    new TagData<Integer>(
                         currentGroup,
-                        specified.getGroup_state_01().getId(),
-                        specified.getGroup_state_02(),
-                        specified.getGroup_state_03()
+                        b.getState().getValue()
+                    )
+                );
+                statusOnes.add(
+                    new TagData<String>(
+                        currentGroup,
+                        b.getStatusOne()
+                    )
+                );
+                statusTwos.add(
+                    new TagData<String>(
+                        currentGroup,
+                        b.getStatusTwo()
                     )
                 );
                 prevGroup = currentGroup;
@@ -124,9 +123,12 @@ public class DefaultConsumerService implements ConsumerAwareRebalanceListener {
         }
 
         // TotalPackage 객체 생성 및 반환
-        return new GroupPackage(
-            new TagGroup(timestamp, tagDataList.toArray(new TagDataDouble[0])),
-            new TagGroup(timestamp, groupDataList.toArray(new TagDataTripple[0]))
+        return new Package(
+            new TagGroup<Double>(timestamp, values),
+            new TagGroup<Boolean>(timestamp, modes),
+            new TagGroup<Integer>(timestamp, states),
+            new TagGroup<String>(timestamp, statusOnes),
+            new TagGroup<String>(timestamp, statusTwos)
         );
 
     }

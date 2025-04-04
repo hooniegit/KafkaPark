@@ -13,14 +13,14 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 
 // Nexus Dependencies
-import com.hooniegit.SourceData.Source.Complexed;
-import com.hooniegit.SourceData.Source.Specified;
+import com.hooniegit.SourceData.Source.Body;
+import com.hooniegit.SourceData.Source.Data;
 import com.hooniegit.SourceData.Source.State;
 import com.hooniegit.Xerializer.Serializer.KryoSerializer;
 
 /**
- * Kafka Producer 서비스입니다. 더미 데이터를 대량으로 생성하여 연속 발행합니다.<br>
- * - KafkaProducerConfig 클래스를 기반으로 동작합니다.
+ * Kafka Producer 서비스입니다. 더미 데이터를 대량으로 생성하여 연속 발행합니다.
+ *  - KafkaProducerConfig 클래스를 기반으로 동작합니다.
  */
 
 @Service
@@ -45,7 +45,7 @@ public class KafkaProducerService {
                 header.put("timestamp", LocalDateTime.now().toString());
 
                 // Body 생성
-                List<Specified> body = new ArrayList<>();
+                List<Body> body = new ArrayList<>();
 
                 // group 단위 : 1 ~ 60,000
 				for (int j = 1; j <= 10; j++) {
@@ -54,7 +54,7 @@ public class KafkaProducerService {
                     // id 단위 : 1 ~ 1,800,000
 					for (int k = 1; k <= 30; k++) {
 						int id = k + (j - 1) * 30 + (i - 1) * 300;
-						body.add(new Specified(id, 
+						body.add(new Body(id, 
                                                random.nextInt(), 
                                                true,
                                                group, 
@@ -65,7 +65,7 @@ public class KafkaProducerService {
 				}
 
                 // Complexed 객체 생성
-                Complexed<List<Specified>> outer = new Complexed<>(header, body);
+                Data<List<Body>> outer = new Data<>(header, body);
 
                 // 직렬화 및 데이터 전송
                 try {
