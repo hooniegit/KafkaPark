@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.3.8-SNAPSHOT</version>
+		<version>3.3.10</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.hooniegit</groupId>
@@ -67,6 +67,12 @@
 		    <groupId>org.ini4j</groupId>
 		    <artifactId>ini4j</artifactId>
 		    <version>0.5.4</version>
+		</dependency>
+
+		<!-- Spring Framework JDBC -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jdbc</artifactId>
 		</dependency>
 
 		<!-- Xerializer -->
