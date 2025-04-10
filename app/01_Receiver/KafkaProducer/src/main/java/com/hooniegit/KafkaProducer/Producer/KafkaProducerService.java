@@ -1,5 +1,6 @@
 package com.hooniegit.KafkaProducer.Producer;
 
+import java.sql.Time;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,7 +38,9 @@ public class KafkaProducerService {
     private void service() throws Exception {
         int cnt = 0;
 
-        while(true) {
+        Time start = new Time(System.currentTimeMillis());
+
+        outer: while(true) {
             for (int i = 1; i <= 6000; i++) {
                 // Generate Header
                 HashMap<String, Object> header = new HashMap<>();
@@ -66,8 +69,14 @@ public class KafkaProducerService {
                     // Serialize Data & Send to Kafka
                     byte[] b = KryoSerializer.serialize(outer);
 //                    sendMessage("WAT", (i-1)%64, b);
-                    System.out.println(">>>>>>>>> " + i);
-                    System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
+//                    System.out.println(">>>>>>>>> " + i);
+//                    System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
+                    cnt++;
+                    if (cnt == 200000) {
+                        Time end = new Time(System.currentTimeMillis());
+                        System.out.println("Kafka Producer Service - Elapsed Time : " + (end.getTime() - start.getTime()) + "ms");
+                        break outer; // 바깥 while문까지 탈출
+                    }
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
