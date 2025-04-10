@@ -64,7 +64,7 @@ public class ProducerHandler extends Handler<XtreamEvent> {
 
             // Transmit & Check
             // sendMessage("WAT", (i-1)%64, b, kafkaTemplate);
-            System.out.println(">>>>>>>>> " + i);
+//            System.out.println(">>>>>>>>> " + i);
         } catch (Exception ex) {
             ex.printStackTrace();
         }

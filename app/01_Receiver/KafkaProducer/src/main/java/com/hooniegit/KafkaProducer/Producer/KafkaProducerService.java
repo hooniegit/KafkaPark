@@ -1,5 +1,6 @@
 package com.hooniegit.KafkaProducer.Producer;
 
+import java.sql.Time;
 import java.util.Random;
 
 import com.hooniegit.KafkaProducer.config.XtreamEvent;
@@ -36,13 +37,22 @@ public class KafkaProducerService {
      */
     @PostConstruct
     private void service() {
+
+        Time start = new Time(System.currentTimeMillis());
+
         int cnt = 0;
 
         // Repeat
-        while(true) {
+        outer: while(true) {
             for (int i = 1; i <= 6000; i++) {
                 this.manager.getNextStream().publishInitialEvent(new XtreamEvent(kafkaTemplate, i));
-                System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
+                // System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
+                cnt++;
+                if (cnt == 200000) {
+                    Time end = new Time(System.currentTimeMillis());
+                    System.out.println("Kafka Producer Service - Elapsed Time : " + (end.getTime() - start.getTime()) + "ms");
+                    break outer; // 바깥 while문까지 탈출
+                }
             }
         }
     }
