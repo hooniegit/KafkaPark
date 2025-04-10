@@ -36,10 +36,13 @@ public class KafkaProducerService {
      */
     @PostConstruct
     private void service() {
+        int cnt = 0;
+
         // Repeat
         while(true) {
             for (int i = 1; i <= 6000; i++) {
                 this.manager.getNextStream().publishInitialEvent(new XtreamEvent(kafkaTemplate, i));
+                System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
             }
         }
     }
