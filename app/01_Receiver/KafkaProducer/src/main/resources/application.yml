@@ -2,10 +2,16 @@ spring:
   application:
     name: KafkaProducer
 
+    devtools:
+      restart:
+        enabled=false:
+
   kafka:
     bootstrap-servers: workspace:9092
     producer:
       group-id: AutoGeneration
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
-
+LMAX:
+  stream:
+    size: 12

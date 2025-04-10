@@ -11,14 +11,10 @@ import org.springframework.kafka.core.ProducerFactory;
 import java.util.Map;
 
 /**
- * Spring 프레임워크의 Kafka Producer 구성 클래스입니다.
- *  - application.yml 파일의 구성 설정을 참조합니다.
- *  - 데이터는 <String, byte[]> 규격으로 전송합니다.
+ * Kafka Producer Configuration (Based On springframework.kafka)
  */
-
 @Configuration
 public class KafkaProducerConfig {
-
     @Autowired
     private KafkaProperties kafkaProperties;
 
