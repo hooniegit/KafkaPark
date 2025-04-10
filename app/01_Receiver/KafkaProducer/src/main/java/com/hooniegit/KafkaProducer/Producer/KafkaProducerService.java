@@ -38,9 +38,9 @@ public class KafkaProducerService {
     private void service() {
         // Repeat
         while(true) {
-			for (int i = 1; i <= 6000; i++) {
+            for (int i = 1; i <= 6000; i++) {
                 this.manager.getNextStream().publishInitialEvent(new XtreamEvent(kafkaTemplate, i));
-			}
+            }
         }
     }
 

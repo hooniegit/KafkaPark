@@ -10,6 +10,4 @@ import org.springframework.context.annotation.Import;
  */
 @Configuration
 @Import(StreamAutoConfiguration.class)
-public class XtreamConfig<T> {
-
-}
+public class XtreamConfig<T> { }
