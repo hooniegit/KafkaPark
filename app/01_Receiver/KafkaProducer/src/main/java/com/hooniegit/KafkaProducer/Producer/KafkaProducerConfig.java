@@ -8,6 +8,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,6 +17,7 @@ import java.util.Map;
  */
 @Configuration
 public class KafkaProducerConfig {
+
     @Autowired
     private KafkaProperties kafkaProperties;
 
@@ -27,5 +30,14 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, byte[]> kafkaTemplate(ProducerFactory<String, byte[]> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    public List<KafkaTemplate<String, byte[]>> kafkaTemplates(ProducerFactory<String, byte[]> producerFactory) {
+        List<KafkaTemplate<String, byte[]>> templates = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            templates.add(new KafkaTemplate<>(producerFactory));
+        }
+        return templates;
     }
 }
