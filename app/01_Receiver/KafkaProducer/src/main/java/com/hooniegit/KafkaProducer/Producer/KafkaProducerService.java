@@ -75,7 +75,7 @@ public class KafkaProducerService {
                     if (cnt == 50000) {
                         Time end = new Time(System.currentTimeMillis());
                         System.out.println("Kafka Producer Service - Elapsed Time : " + (end.getTime() - start.getTime()) + "ms");
-                        break outer; // 바깥 while문까지 탈출
+                        break outer;
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace();
