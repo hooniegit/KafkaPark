@@ -63,12 +63,11 @@ public class KafkaProducerService {
                 try {
                     // Serialize Data & Send to Kafka
                     byte[] b = KryoSerializer.serialize(outer);
-                    sendMessage("WAT", (i-1)%64, b);
+//                    sendMessage("WAT", (i-1)%64, b);
                     System.out.println(">>>>>>>>> " + i);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
-
             }
         }
     }

@@ -32,12 +32,4 @@ public class KafkaProducerConfig {
         return new KafkaTemplate<>(producerFactory);
     }
 
-    @Bean
-    public List<KafkaTemplate<String, byte[]>> kafkaTemplates(ProducerFactory<String, byte[]> producerFactory) {
-        List<KafkaTemplate<String, byte[]>> templates = new ArrayList<>();
-        for (int i = 0; i < 20; i++) {
-            templates.add(new KafkaTemplate<>(producerFactory));
-        }
-        return templates;
-    }
 }
