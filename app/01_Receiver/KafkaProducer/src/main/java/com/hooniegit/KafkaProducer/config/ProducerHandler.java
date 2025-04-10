@@ -63,7 +63,7 @@ public class ProducerHandler extends Handler<XtreamEvent> {
             byte[] b = KryoSerializer.serialize(outer);
 
             // Transmit & Check
-            sendMessage("WAT", (i-1)%64, b, kafkaTemplate);
+            // sendMessage("WAT", (i-1)%64, b, kafkaTemplate);
             System.out.println(">>>>>>>>> " + i);
         } catch (Exception ex) {
             ex.printStackTrace();
