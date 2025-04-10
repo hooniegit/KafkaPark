@@ -35,6 +35,8 @@ public class KafkaProducerService {
      */
     @PostConstruct
     private void service() throws Exception {
+        int cnt = 0;
+
         while(true) {
             for (int i = 1; i <= 6000; i++) {
                 // Generate Header
@@ -65,6 +67,7 @@ public class KafkaProducerService {
                     byte[] b = KryoSerializer.serialize(outer);
 //                    sendMessage("WAT", (i-1)%64, b);
                     System.out.println(">>>>>>>>> " + i);
+                    System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
