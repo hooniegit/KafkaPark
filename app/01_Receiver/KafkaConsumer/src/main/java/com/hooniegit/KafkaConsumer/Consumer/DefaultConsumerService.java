@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.hooniegit.KafkaConsumer.MSSQL.TagReference;
+import com.hooniegit.KafkaConsumer.Netty.NettyChannelClient;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -24,7 +25,6 @@ import com.hooniegit.SourceData.Source.Data;
 import com.hooniegit.SourceData.Source.Body;
 import com.hooniegit.SourceData.Interface.Package;
 import com.hooniegit.SourceData.Interface.TagData;
-import com.hooniegit.SourceData.Interface.TagGroup;
 import com.hooniegit.Xerializer.Kryo.KryoSerializer;
 
 /**
@@ -40,6 +40,9 @@ public class DefaultConsumerService implements ConsumerSeekAware {
     private DatagramSocket[] clientSocket = new DatagramSocket[64];
     private final InetAddress[] addresses = new InetAddress[4];
     private boolean initialized = false;
+
+    @Autowired
+    private NettyChannelClient nettyChannelClient;
 
     @Autowired
     private StateReference stateReference;
@@ -73,10 +76,10 @@ public class DefaultConsumerService implements ConsumerSeekAware {
         Data<List<Body>> c = KryoSerializer.deserialize(record.value());
 
         // Re-Factor
-        Package pkg = generatePackage(c.getBody(), (String) c.getHeader().get("timestamp"));
+        Package pkg = generatePackage(c.getBody(), c.getHeader().get("timestamp").toString());
 
-        System.out.println("Created Package At " + c.getHeader().get("timestamp"));
-        // Transport
+        this.nettyChannelClient.init();
+        this.nettyChannelClient.sendData(pkg.getValue());
 //        udp(index, KryoSerializer.serialize(pkg.getValue()), addresses[0], 8000);
 //        udp(index, KryoSerializer.serialize(pkg.getMode()), addresses[0], 8001);
 //        udp(index, KryoSerializer.serialize(pkg.getState()), addresses[0], 8002);
@@ -118,10 +121,10 @@ public class DefaultConsumerService implements ConsumerSeekAware {
             int id = b.getId();
             if (tagReference.getIds().containsKey(id)) {
                 int tag_index = tagReference.getIds().get(id);
-                values.add( new TagData<Double>(tag_index, b.getValue()) );
+                values.add( new TagData<Double>(tag_index, b.getValue(), timestamp) );
 
                 int group_index = stateReference.getIds().get(id);
-                modes.add( new TagData<Boolean>(group_index, b.isMode()) );
+                modes.add( new TagData<Boolean>(group_index, b.isMode(), timestamp) );
             }
 
             int group = b.getGroup();
@@ -130,22 +133,17 @@ public class DefaultConsumerService implements ConsumerSeekAware {
                 // Check If Group Exists
                 if (stateReference.getGroups().containsKey(group)) {
                     int group_index = stateReference.getGroups().get(group)[0];
-                    states.add( new TagData<Integer>(group_index, b.getState().getValue()) );
-                    statusOnes.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[1].toString()) );
-                    statusTwos.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[2].toString()) );
+                    states.add( new TagData<Integer>(group_index, b.getState().getValue(), timestamp) );
+                    statusOnes.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[1].toString(), timestamp) );
+                    statusTwos.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[2].toString(), timestamp) );
                     prevGroup = group;
                 }
             }
-
         }
 
         // Return New Package Data
         return new Package(
-            new TagGroup<Double>(timestamp, values),
-            new TagGroup<Boolean>(timestamp, modes),
-            new TagGroup<Integer>(timestamp, states),
-            new TagGroup<String>(timestamp, statusOnes),
-            new TagGroup<String>(timestamp, statusTwos)
+            values, modes, states, statusOnes, statusTwos
         );
     }
 

@@ -1,8 +1,0 @@
-server:
-  port: 9000
-
-  datasource:
-    url: jdbc:sqlserver://workspace:1433;databaseName=ctc_kafka
-    username: sa
-    password: password
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

@@ -44,7 +44,7 @@ public class KafkaProducerService {
             for (int i = 1; i <= 6000; i++) {
                 // Generate Header
                 HashMap<String, Object> header = new HashMap<>();
-                header.put("timestamp", LocalDateTime.now().toString());
+                header.put("timestamp", LocalDateTime.now());
 
                 // Generate Body
                 List<Body> body = new ArrayList<>();
