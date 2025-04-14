@@ -1,7 +1,5 @@
-spring:
-  application:
-    name: XtreamApplication
-
 LMAX:
-  stream:
+  list:
     size: 12
+  buffer:
+    multiplier: 2

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.hooniegit.KafkaConsumer.MSSQL.TagReference;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -16,7 +17,7 @@ import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.stereotype.Service;
 
-import com.hooniegit.KafkaConsumer.MSSQL.Reference;
+import com.hooniegit.KafkaConsumer.MSSQL.StateReference;
 
 // Nexus Dependencies
 import com.hooniegit.SourceData.Source.Data;
@@ -24,7 +25,7 @@ import com.hooniegit.SourceData.Source.Body;
 import com.hooniegit.SourceData.Interface.Package;
 import com.hooniegit.SourceData.Interface.TagData;
 import com.hooniegit.SourceData.Interface.TagGroup;
-import com.hooniegit.Xerializer.Serializer.KryoSerializer;
+import com.hooniegit.Xerializer.Kryo.KryoSerializer;
 
 /**
  * Default Kafka Consumer Service.
@@ -35,12 +36,16 @@ import com.hooniegit.Xerializer.Serializer.KryoSerializer;
  */
 @Service
 public class DefaultConsumerService implements ConsumerSeekAware {
+
     private DatagramSocket[] clientSocket = new DatagramSocket[64];
     private final InetAddress[] addresses = new InetAddress[4];
     private boolean initialized = false;
 
     @Autowired
-    private Reference referenceMap;
+    private StateReference stateReference;
+
+    @Autowired
+    private TagReference tagReference;
 
 
     // Utils //////////////////////////////////////////////////////////////////////////////
@@ -70,12 +75,13 @@ public class DefaultConsumerService implements ConsumerSeekAware {
         // Re-Factor
         Package pkg = generatePackage(c.getBody(), (String) c.getHeader().get("timestamp"));
 
+        System.out.println("Created Package At " + c.getHeader().get("timestamp"));
         // Transport
-        udp(index, KryoSerializer.serialize(pkg.getValue()), addresses[0], 8000);
-        udp(index, KryoSerializer.serialize(pkg.getMode()), addresses[0], 8001);
-        udp(index, KryoSerializer.serialize(pkg.getState()), addresses[0], 8002);
-        udp(index, KryoSerializer.serialize(pkg.getStatusOne()), addresses[0], 8003);
-        udp(index, KryoSerializer.serialize(pkg.getStatusTwo()), addresses[0], 8004);
+//        udp(index, KryoSerializer.serialize(pkg.getValue()), addresses[0], 8000);
+//        udp(index, KryoSerializer.serialize(pkg.getMode()), addresses[0], 8001);
+//        udp(index, KryoSerializer.serialize(pkg.getState()), addresses[0], 8002);
+//        udp(index, KryoSerializer.serialize(pkg.getStatusOne()), addresses[0], 8003);
+//        udp(index, KryoSerializer.serialize(pkg.getStatusTwo()), addresses[0], 8004);
     }
 
     /**
@@ -110,25 +116,27 @@ public class DefaultConsumerService implements ConsumerSeekAware {
         for (Body b : list) {
             // Generate Tag Unit Datas
             int id = b.getId();
-            if (referenceMap.getIds().containsKey(id)) {
-                int index = referenceMap.getIds().get(id);
-                values.add( new TagData<Double>(index, b.getValue()) );
-                modes.add( new TagData<Boolean>(index, b.isMode()) );
+            if (tagReference.getIds().containsKey(id)) {
+                int tag_index = tagReference.getIds().get(id);
+                values.add( new TagData<Double>(tag_index, b.getValue()) );
+
+                int group_index = stateReference.getIds().get(id);
+                modes.add( new TagData<Boolean>(group_index, b.isMode()) );
             }
 
-            // Generate Group Unit Datas
-            int currentGroup = b.getGroup();
-            if (currentGroup != prevGroup) {
-                if (referenceMap.getGroups().containsKey(currentGroup)) {
-                    Integer[] indexes = referenceMap.getGroups().get(currentGroup);
-                    states.add( new TagData<Integer>(indexes[0], b.getState().getValue()) );
-                    statusOnes.add( new TagData<String>(indexes[1], b.getStatusOne()) );
-                    statusTwos.add( new TagData<String>(indexes[2], b.getStatusTwo()) );
-
-                    // Check New Group ID
-                    prevGroup = currentGroup;
+            int group = b.getGroup();
+            // Check If Group Changed
+            if (prevGroup != group) {
+                // Check If Group Exists
+                if (stateReference.getGroups().containsKey(group)) {
+                    int group_index = stateReference.getGroups().get(group)[0];
+                    states.add( new TagData<Integer>(group_index, b.getState().getValue()) );
+                    statusOnes.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[1].toString()) );
+                    statusTwos.add( new TagData<String>(group_index, stateReference.getGroups().get(group)[2].toString()) );
+                    prevGroup = group;
                 }
             }
+
         }
 
         // Return New Package Data

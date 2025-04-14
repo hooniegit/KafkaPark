@@ -3,8 +3,16 @@ spring:
     name: KafkaConsumer
 
   datasource:
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    url: jdbc:sqlserver://<서버주소>:<포트번호>;databaseName=<DB이름>;user=<DB계정>;password=<비밀번호>;encrypt=true;trustServerCertificate=true;applicationIntent=ReadWrite;applicationName=MyApp
+    tag:
+      jdbc-url: jdbc:sqlserver://workspace:1433;databaseName=ctc_kafka;encrypt=true;trustServerCertificate=true;
+      username: sa
+      password: '!@34qwer'
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    state:
+      jdbc-url: jdbc:sqlserver://workspace:1433;databaseName=ToolState;encrypt=true;trustServerCertificate=true;
+      username: sa
+      password: '!@34qwer'
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   kafka:
     bootstrap-servers: workspace:9092

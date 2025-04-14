@@ -17,7 +17,7 @@ import jakarta.annotation.PostConstruct;
 import com.hooniegit.SourceData.Source.Body;
 import com.hooniegit.SourceData.Source.Data;
 import com.hooniegit.SourceData.Source.State;
-import com.hooniegit.Xerializer.Serializer.KryoSerializer;
+import com.hooniegit.Xerializer.Kryo.KryoSerializer;
 
 /**
  * Kafka Producer Service
@@ -69,14 +69,12 @@ public class KafkaProducerService {
                     // Serialize Data & Send to Kafka
                     byte[] b = KryoSerializer.serialize(outer);
                     sendMessage("WAT", (i-1)%64, b);
-//                    System.out.println(">>>>>>>>> " + i);
-//                    System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
-                    cnt++;
-                    if (cnt == 50000) {
-                        Time end = new Time(System.currentTimeMillis());
-                        System.out.println("Kafka Producer Service - Elapsed Time : " + (end.getTime() - start.getTime()) + "ms");
-                        break outer;
-                    }
+                    System.out.println("Kafka Producer Service - Publish Event : " + ++cnt);
+//                    if (cnt == 50000) {
+//                        Time end = new Time(System.currentTimeMillis());
+//                        System.out.println("Kafka Producer Service - Elapsed Time : " + (end.getTime() - start.getTime()) + "ms");
+//                        break outer;
+//                    }
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }

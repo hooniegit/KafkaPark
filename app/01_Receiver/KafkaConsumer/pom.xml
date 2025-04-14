@@ -75,6 +75,11 @@
 			<artifactId>spring-boot-starter-data-jdbc</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.microsoft.sqlserver</groupId>
+			<artifactId>mssql-jdbc</artifactId>
+		</dependency>
+
 		<!-- Xerializer -->
 		<dependency>
 			<groupId>com.hooniegit</groupId>
@@ -86,6 +91,13 @@
 		<dependency>
 			<groupId>com.hooniegit</groupId>
 			<artifactId>SourceData</artifactId>
+			<version>0.1.0</version>
+		</dependency>
+
+		<!-- NettyDataProtocol -->
+		<dependency>
+			<groupId>com.hooniegit</groupId>
+			<artifactId>NettyDataProtocol</artifactId>
 			<version>0.1.0</version>
 		</dependency>
 	</dependencies>

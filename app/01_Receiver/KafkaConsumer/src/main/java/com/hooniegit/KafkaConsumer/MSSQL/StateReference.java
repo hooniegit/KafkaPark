@@ -7,20 +7,20 @@ import org.springframework.stereotype.Component;
 import lombok.Getter;
 
 /**
- * 
+ *
  */
 
 @Component
-public class Reference {
+public class StateReference {
 
-    // <id, index> 
+    // <id, index>
     @Getter
     private ConcurrentHashMap<Integer, Integer> ids = new ConcurrentHashMap<>();
 
     // <group, [state, statusOne, statusTwo]>
     @Getter
     private ConcurrentHashMap<Integer, Integer[]> groups = new ConcurrentHashMap<>();
-    
+
     /**
      * update ids map
      * @param ids

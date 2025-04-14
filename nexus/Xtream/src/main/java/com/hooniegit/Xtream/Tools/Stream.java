@@ -1,4 +1,4 @@
-package com.hooniegit.Xtream.Stream;
+package com.hooniegit.Xtream.Tools;
 
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.SleepingWaitStrategy;
@@ -9,18 +9,18 @@ import com.lmax.disruptor.util.DaemonThreadFactory;
 import java.util.List;
 
 /**
- * LMAX Disruptor 기반의 이벤트를 발행하는 클래스입니다. 이벤트 처리 시 동작할 커스텀 핸들러 클래스들을 리스트로 입력 받습니다.
+ * LMAX Stream Class for Event Processing
+ * @param <T>
  */
-
 public class Stream<T> {
+
     private final Disruptor<Event<T>> disruptor;
     private final RingBuffer<Event<T>> ringBuffer;
 
-    public Stream(List<Handler<T>> handlers) {
-
+    public Stream(List<Handler<T>> handlers, int bufferMultiplier) {
         disruptor = new Disruptor<>(
                 Event::new,
-                1024,
+                1024 * bufferMultiplier,
                 DaemonThreadFactory.INSTANCE,
                 ProducerType.SINGLE,
                 new SleepingWaitStrategy()
@@ -45,7 +45,7 @@ public class Stream<T> {
     }
 
     /**
-     * 입력받은 데이터를 기반으로 이벤트를 발행합니다.
+     * Publish Event
      * @param initialData
      */
     public void publishInitialEvent(T initialData) {
@@ -59,10 +59,11 @@ public class Stream<T> {
     }
 
     /**
-     * LMAX Disruptor 스레드를 정지 시킵니다.
+     * Stop Disruptor Thread
      * @throws Exception
      */
     public void stop() throws Exception {
         disruptor.shutdown();
     }
+
 }
