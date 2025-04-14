@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class NettyChannelClient {
 
-    private static final int CHANNEL_COUNT = 64;
+    private static final int CHANNEL_COUNT = 16;
     private static final String HOST = "localhost";
     private static final int PORT = 9999;
 
