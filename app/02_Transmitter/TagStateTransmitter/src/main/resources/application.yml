@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: TagStateTransmitter
+
+  datasource:
+    url: jdbc:sqlserver://workspace:1433;databaseName=ToolState;encrypt=true;trustServerCertificate=true;
+    username: sa
+    password: '!@34qwer'
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+    hikari:
+      maximum-pool-size: 200       # 기본값은 10
+      minimum-idle: 10
+      idle-timeout: 30000
+      connection-timeout: 3000
+      max-lifetime: 1800000
+
+
+LMAX:
+  list:
+    size: 12
+  buffer:
+    multiplier: 16

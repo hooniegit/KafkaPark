@@ -78,13 +78,16 @@ public class DefaultConsumerService implements ConsumerSeekAware {
         // Re-Factor
         Package pkg = generatePackage(c.getBody(), c.getHeader().get("timestamp").toString());
 
-        this.nettyChannelClient.init();
-        this.nettyChannelClient.sendData(pkg.getValue());
-//        udp(index, KryoSerializer.serialize(pkg.getValue()), addresses[0], 8000);
-//        udp(index, KryoSerializer.serialize(pkg.getMode()), addresses[0], 8001);
-//        udp(index, KryoSerializer.serialize(pkg.getState()), addresses[0], 8002);
-//        udp(index, KryoSerializer.serialize(pkg.getStatusOne()), addresses[0], 8003);
-//        udp(index, KryoSerializer.serialize(pkg.getStatusTwo()), addresses[0], 8004);
+        System.out.println(c.getHeader().get("timestamp"));
+
+//        this.nettyChannelClient.init_tag();
+        this.nettyChannelClient.init_mode();
+
+//        this.nettyChannelClient.sendData(pkg.getValue());
+        this.nettyChannelClient.sendMode(pkg.getMode());
+//        this.nettyChannelClient.sendStatusOne(pkg.getState());
+//        this.nettyChannelClient.sendStatusTwo(pkg.getStatusOne());
+//        this.nettyChannelClient.sendStatusThree(pkg.getStatusTwo());
     }
 
     /**
